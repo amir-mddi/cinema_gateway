@@ -1,0 +1,107 @@
+name: cinema-gateway
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+
+  image: cinema-gateway:latest
+
+  env_file:
+    - .env
+
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+  restart: unless-stopped
+
+  networks:
+    - backend
+
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+
+services:
+
+  migrate:
+    <<: *app
+    restart: "no"
+
+    command: >
+      sh -c "
+      python manage.py migrate --noinput &&
+      python manage.py collectstatic --noinput &&
+      python manage.py shell -c \"import os; from django.contrib.auth import get_user_model; User = get_user_model(); username = os.environ['DJANGO_SUPERUSER_USERNAME']; password = os.environ['DJANGO_SUPERUSER_PASSWORD']; email = os.environ.get('DJANGO_SUPERUSER_EMAIL', ''); user, created = User.objects.get_or_create(username=username, defaults={'email': email, 'is_staff': True, 'is_superuser': True}); user.is_staff = True; user.is_superuser = True; user.email = email; user.set_password(password); user.save(); print('Superuser ready:', username)\"
+      "
+
+
+  web:
+    <<: *app
+
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+    ports:
+      - "${HOST_PORT:-8079}:8079"
+
+    command:
+      - gunicorn
+      - backend.project.wsgi:application
+      - --bind
+      - 0.0.0.0:8079
+      - --workers
+      - "2"
+      - --timeout
+      - "60"
+      - --access-logfile
+      - "-"
+      - --error-logfile
+      - "-"
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8079/health/', timeout=3).read()"
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+
+  poller:
+    <<: *app
+
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+    command:
+      - python
+      - manage.py
+      - bot_polling
+      - --all
+
+
+  expiry:
+    <<: *app
+
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+    command:
+      - python
+      - manage.py
+      - expire_media
+
+
+networks:
+  backend:
+    external: true
+    name: backend

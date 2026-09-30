@@ -1,0 +1,10 @@
+.env
+.venv/
+.git/
+.idea/
+__pycache__/
+*.py[cod]
+db/
+staticfiles/
+.pytest_cache/
+*.log

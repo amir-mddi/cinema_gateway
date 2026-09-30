@@ -1,0 +1,8 @@
+# Optional HTTPS reverse proxy once you have a domain pointing to this server.
+# Run Caddy on the host or add it as a separate Compose service.
+# Replace movies.example.com with your domain and set HOST_PORT=8079 in .env.
+
+movies.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8079
+}
