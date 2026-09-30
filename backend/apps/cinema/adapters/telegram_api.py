@@ -66,7 +66,7 @@ class TelegramAPI:
     def deliver(self, source_chat_id, source_message_id, destination_chat_id):
         method = "forwardMessage" if settings.DELIVERY_MODE == "forward" else "copyMessage"
         return self.call(method, from_chat_id=source_chat_id, message_id=source_message_id,
-                         chat_id=destination_chat_id, protect_content=True)
+                         chat_id=destination_chat_id, protect_content=False)
 
     def delete(self, chat_id, message_id):
         return self.call("deleteMessage", chat_id=chat_id, message_id=message_id)
